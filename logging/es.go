@@ -42,7 +42,7 @@ func insertLogsWithApiKey(body LogBody) (err error) {
 		// 	viper.GetString("logging.es_username"),
 		// 	viper.GetString("logging.es_password")).
 		SetBody(body).
-		Post(fmt.Sprint("%s/%s/_doc/", host, indice))
+		Post(fmt.Sprintf("%s/%s/_doc/", host, indice))
 	if err != nil {
 		return
 	}
@@ -65,7 +65,7 @@ func insertLogsWithUserPassword(body LogBody) (err error) {
 			password,
 		).
 		SetBody(body).
-		Post(fmt.Sprint("%s/%s/_doc/", host, indice))
+		Post(fmt.Sprintf("%s/%s/_doc/", host, indice))
 	if err != nil {
 		return
 	}
