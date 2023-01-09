@@ -1,9 +1,11 @@
 package logging
 
 import (
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jubelio/go-logging/getenv"
 )
 
@@ -28,6 +30,9 @@ func Log(severity, message string, extraInfo interface{}) {
 
 	if stdout && logLeveled(severity) {
 		log.Printf("[%s] %s", severity, message)
+		if extraInfo != nil {
+			spew.Dump(fmt.Sprintf("[%s-extra] %s", severity, time.Now().Format("2006/01/02 15:04:05")), extraInfo)
+		}
 	}
 
 	if !active || !logLeveled(severity) {
