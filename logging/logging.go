@@ -49,10 +49,8 @@ func Log(severity, message string, extraInfo interface{}) {
 		Extra: extraInfo,
 	}
 
-	err := insertLogs(logBody)
-	if err != nil {
-		log.Printf("[insertlog-%s] %s", "ERROR", err.Error())
-	}
+	go insertLogs(logBody)
+
 }
 
 func logLeveled(severity string) bool {

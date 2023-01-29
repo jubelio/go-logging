@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/jubelio/go-logging/getenv"
@@ -24,11 +25,16 @@ func insertLogs(body LogBody) (err error) {
 	password = getenv.GetEnvString("LOGGING_PASSWORD", "")
 
 	if apiKey != "" {
-		return insertLogsWithApiKey(body)
+		err = insertLogsWithApiKey(body)
+	} else {
+		err = insertLogsWithUserPassword(body)
 	}
 
-	return insertLogsWithUserPassword(body)
+	if err != nil {
+		log.Printf("[insertlog-%s] %s", "ERROR", err.Error())
+	}
 
+	return
 }
 
 func insertLogsWithApiKey(body LogBody) (err error) {
