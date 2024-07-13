@@ -13,15 +13,42 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	type info struct {
-		Test  string
-		Test2 string
-	}
-
-	var x info
-	x.Test = "TESTTTTTTTT"
-	x.Test2 = "TESSSTTTTTTTT2222"
-
-	logging.Infof("Testwith extra", x)
+	logging.Infof("Request payload", map[string]interface{}{
+		"common":  "this is common info",
+		"other":   "this is other info",
+		"shop_id": 10999,
+		"user_id": 10999,
+		"details": map[string]interface{}{
+			"name":  "John Doe",
+			"email": "john@doe.com",
+			"phone": "1234567890",
+		},
+		"items": []map[string]interface{}{
+			{
+				"id":   "123456",
+				"name": "Item 1",
+				"price": map[string]interface{}{
+					"amount":   100,
+					"currency": "USD",
+				},
+			},
+			{
+				"id":   "123456",
+				"name": "Item 2",
+				"price": map[string]interface{}{
+					"amount":   200,
+					"currency": "USD",
+				},
+			},
+			{
+				"id":   "123456",
+				"name": "Item 3",
+				"price": map[string]interface{}{
+					"amount":   300,
+					"currency": "USD",
+				},
+			},
+		},
+	})
 
 }
