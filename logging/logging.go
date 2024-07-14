@@ -2,83 +2,46 @@ package logging
 
 import (
 	"encoding/json"
-	"fmt"
-	"runtime"
-	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/jubelio/go-logging/getenv"
+	"github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 var (
+	logger      = logrus.New()
 	level       string
 	active      bool
-	stdout      bool
 	serviceName string
-	env         string
+	vSeverity   = [...]string{"FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}
 )
 
-var vSeverity = [...]string{"FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}
+// Fields type, used to pass to `WithFields`.
+type Fields map[string]interface{}
 
-func Log(severity, message string, extraInfo interface{}) {
+func init() {
 	level = getenv.GetEnvString("LOGGING_LEVEL", "INFO")
 	active, _ = getenv.GetEnvBool("LOGGING_ACTIVE", false)
-	stdout, _ = getenv.GetEnvBool("LOGGING_STDOUT", true)
 	serviceName = getenv.GetEnvString("LOGGING_SERVICENAME", "go-logging")
-	env = getenv.GetEnvString("ENVIRONTMENT", "development")
 
+	logger.SetFormatter(
+		&prefixed.TextFormatter{
+			TimestampFormat:  "2006-01-02 15:04:05",
+			ForceColors:      true,
+			FullTimestamp:    true,
+			QuoteEmptyFields: true,
+			ForceFormatting:  true,
+			DisableUppercase: true,
+		})
+
+	logger.SetReportCaller(true)
+	logger.SetLevel(logrus.InfoLevel)
+}
+
+func sendLog(severity, message string, extraInfo interface{}) {
 	if !sContains(vSeverity[:], severity) {
 		severity = "INFO"
-	}
-
-	// Create a new logger instance
-	logger := logrus.New()
-	logger.SetReportCaller(true)
-
-	logger.SetFormatter(&logrus.TextFormatter{
-		TimestampFormat:  "2006/01/02 15:04:05",
-		ForceColors:      true,
-		FullTimestamp:    true,
-		ForceQuote:       true,
-		QuoteEmptyFields: true,
-		DisableQuote:     true,
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-			funcString := f.Function
-			s := strings.Split(f.Func.Name(), ".")
-			if len(s) > 1 {
-				funcString = s[len(s)-1]
-			}
-			return fmt.Sprintf("%s()", funcString), fmt.Sprintf("%s:%d", f.File[strings.LastIndex(f.File, "/")+1:], f.Line)
-		},
-	})
-
-	if stdout && logLeveled(severity) {
-		var fields logrus.Fields
-		extraField := logger.WithFields(logrus.Fields{})
-
-		if extraInfo != nil {
-			jsonStr, _ := json.Marshal(extraInfo)
-			extraField.Data["extraInfo"] = string(jsonStr)
-			fields = extraField.Data
-		}
-
-		switch severity {
-		case "DEBUG":
-			logger.WithFields(fields).Debug(message)
-		case "INFO":
-			logger.WithFields(fields).Info(message)
-		case "WARN":
-			logger.WithFields(fields).Warn(message)
-		case "ERROR":
-			logger.WithFields(fields).Error(message)
-		case "FATAL":
-			logger.WithFields(fields).Fatal(message)
-		case "TRACE":
-			logger.WithFields(fields).Trace(message)
-		}
-
 	}
 
 	if !active || !logLeveled(severity) {
@@ -95,6 +58,7 @@ func Log(severity, message string, extraInfo interface{}) {
 		Extra: extraInfo,
 	}
 
+	// send logs to ElasticSearch
 	go insertLogs(logBody)
 
 }
@@ -110,16 +74,162 @@ func logLeveled(severity string) bool {
 	return slevel <= level
 }
 
-// func fileInfo(skip int) string {
-// 	_, file, line, ok := runtime.Caller(skip)
-// 	if !ok {
-// 		file = "<???>"
-// 		line = 1
-// 	} else {
-// 		slash := strings.LastIndex(file, "/")
-// 		if slash >= 0 {
-// 			file = file[slash+1:]
-// 		}
-// 	}
-// 	return fmt.Sprintf("%s:%d", file, line)
-// }
+func Infof(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.InfoLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		if extraInfo != nil && extraInfo != "" {
+			jsonStr, _ := json.Marshal(extraInfo)
+			entity.Data["data"] = string(jsonStr)
+		}
+		entity.Info(message)
+		sendLog("INFO", message, extraInfo)
+	}
+}
+
+func Warnf(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.WarnLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		if extraInfo != nil && extraInfo != "" {
+			jsonStr, _ := json.Marshal(extraInfo)
+			entity.Data["data"] = string(jsonStr)
+		}
+
+		entity.Warn(message)
+		sendLog("WARN", message, extraInfo)
+	}
+}
+
+func Errorf(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.ErrorLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		if extraInfo != nil && extraInfo != "" {
+			if err, ok := extraInfo.(error); ok {
+				entity.Data["reason"] = err.Error()
+			} else {
+				jsonStr, _ := json.Marshal(extraInfo)
+				entity.Data["data"] = string(jsonStr)
+			}
+		}
+		entity.Error(message)
+		sendLog("ERROR", message, extraInfo)
+	}
+}
+
+func Fatalf(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.FatalLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		if extraInfo != nil && extraInfo != "" {
+			if err, ok := extraInfo.(error); ok {
+				entity.Data["reason"] = err.Error()
+			} else {
+				jsonStr, _ := json.Marshal(extraInfo)
+				entity.Data["data"] = string(jsonStr)
+			}
+		}
+
+		entity.Fatal(message)
+		sendLog("FATAL", message, extraInfo)
+	}
+}
+
+func Tracef(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.TraceLevel {
+		entity := logger.WithFields(logrus.Fields{})
+		if extraInfo != nil && extraInfo != "" {
+			jsonStr, _ := json.Marshal(extraInfo)
+			entity.Data["data"] = string(jsonStr)
+		}
+
+		entity.Trace(message)
+		sendLog("TRACE", message, extraInfo)
+	}
+}
+
+func Debugf(message string, extraInfo interface{}) {
+	if logger.Level >= logrus.DebugLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		if extraInfo != nil && extraInfo != "" {
+			jsonStr, _ := json.Marshal(extraInfo)
+			entity.Data["data"] = string(jsonStr)
+		}
+
+		entity.Debug(message)
+		sendLog("DEBUG", message, extraInfo)
+	}
+}
+
+func Trace(message string) {
+	if logger.Level >= logrus.TraceLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Trace(message)
+		sendLog("TRACE", message, nil)
+	}
+}
+
+func Debug(message string) {
+	if logger.Level >= logrus.DebugLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Debug(message)
+	}
+}
+
+func Info(message string) {
+	if logger.Level >= logrus.InfoLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Infof(message)
+		sendLog("INFO", message, nil)
+	}
+}
+
+func Warn(message string) {
+	if logger.Level >= logrus.WarnLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Warn(message)
+		sendLog("WARN", message, nil)
+	}
+}
+
+func Error(message string) {
+	if logger.Level >= logrus.ErrorLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Error(message)
+		sendLog("ERROR", message, nil)
+	}
+}
+
+func Fatal(message string) {
+	if logger.Level >= logrus.FatalLevel {
+		entity := logger.WithFields(logrus.Fields{
+			"file": fileInfo(2),
+		})
+		entity.Fatal(message)
+		sendLog("FATAL", message, nil)
+	}
+}
+
+// WithFields returns a new entry with the given fields.
+// It is a shortcut for `WithFields(Fields(fields))`.
+// See `WithFields` for more details.
+func WithFields(fields Fields) *logrus.Entry {
+	return logger.WithFields(logrus.Fields(fields))
+}

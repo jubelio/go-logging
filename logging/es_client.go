@@ -41,17 +41,15 @@ func insertLogsWithApiKey(body LogBody) (err error) {
 	// Create a Resty Client
 	client := resty.New()
 	resp, err := client.R().
-		// SetResult(result).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", "ApiKey "+apiKey).
-		// SetBasicAuth(
-		// 	viper.GetString("logging.es_username"),
-		// 	viper.GetString("logging.es_password")).
 		SetBody(body).
 		Post(fmt.Sprintf("%s/%s/_doc/", host, indice))
+
 	if err != nil {
 		return
 	}
+
 	if resp.StatusCode() > 399 {
 		fmt.Println(string(resp.Body()))
 		err = fmt.Errorf("code: %d status: %s", resp.StatusCode(), resp.Status())
@@ -64,7 +62,6 @@ func insertLogsWithUserPassword(body LogBody) (err error) {
 	// Create a Resty Client
 	client := resty.New()
 	resp, err := client.R().
-		// SetResult(result).
 		SetHeader("Content-Type", "application/json").
 		SetBasicAuth(
 			username,
@@ -72,9 +69,12 @@ func insertLogsWithUserPassword(body LogBody) (err error) {
 		).
 		SetBody(body).
 		Post(fmt.Sprintf("%s/%s/_doc/", host, indice))
+
 	if err != nil {
+		log.Printf("[insertlog-%s] %s", "ERROR", err.Error())
 		return
 	}
+
 	if resp.StatusCode() > 399 {
 		fmt.Println(string(resp.Body()))
 		err = fmt.Errorf("code: %d status: %s", resp.StatusCode(), resp.Status())
