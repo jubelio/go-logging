@@ -2,6 +2,7 @@ package logging
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/jubelio/go-logging/getenv"
@@ -41,7 +42,8 @@ func init() {
 
 func sendLog(severity, message string, extraInfo interface{}) {
 	if !sContains(vSeverity[:], severity) {
-		severity = "INFO"
+		log.Println("severity", severity)
+
 	}
 
 	if !active || !logLeveled(severity) {
@@ -84,7 +86,7 @@ func Infof(message string, extraInfo interface{}) {
 			entity.Data["data"] = string(jsonStr)
 		}
 		entity.Info(message)
-		sendLog("INFO", message, extraInfo)
+		go sendLog("INFO", message, extraInfo)
 	}
 }
 
@@ -99,7 +101,7 @@ func Warnf(message string, extraInfo interface{}) {
 		}
 
 		entity.Warn(message)
-		sendLog("WARN", message, extraInfo)
+		go sendLog("WARN", message, extraInfo)
 	}
 }
 
@@ -117,7 +119,7 @@ func Errorf(message string, extraInfo interface{}) {
 			}
 		}
 		entity.Error(message)
-		sendLog("ERROR", message, extraInfo)
+		go sendLog("ERROR", message, extraInfo)
 	}
 }
 
@@ -136,7 +138,7 @@ func Fatalf(message string, extraInfo interface{}) {
 		}
 
 		entity.Fatal(message)
-		sendLog("FATAL", message, extraInfo)
+		go sendLog("FATAL", message, extraInfo)
 	}
 }
 
@@ -149,7 +151,7 @@ func Tracef(message string, extraInfo interface{}) {
 		}
 
 		entity.Trace(message)
-		sendLog("TRACE", message, extraInfo)
+		go sendLog("TRACE", message, extraInfo)
 	}
 }
 
@@ -164,7 +166,7 @@ func Debugf(message string, extraInfo interface{}) {
 		}
 
 		entity.Debug(message)
-		sendLog("DEBUG", message, extraInfo)
+		go sendLog("DEBUG", message, extraInfo)
 	}
 }
 
@@ -174,7 +176,7 @@ func Trace(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Trace(message)
-		sendLog("TRACE", message, nil)
+		go sendLog("TRACE", message, nil)
 	}
 }
 
@@ -184,6 +186,7 @@ func Debug(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Debug(message)
+		go sendLog("DEBUG", message, nil)
 	}
 }
 
@@ -193,7 +196,7 @@ func Info(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Infof(message)
-		sendLog("INFO", message, nil)
+		go sendLog("INFO", message, nil)
 	}
 }
 
@@ -203,7 +206,7 @@ func Warn(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Warn(message)
-		sendLog("WARN", message, nil)
+		go sendLog("WARN", message, nil)
 	}
 }
 
@@ -213,7 +216,7 @@ func Error(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Error(message)
-		sendLog("ERROR", message, nil)
+		go sendLog("ERROR", message, nil)
 	}
 }
 
@@ -223,7 +226,7 @@ func Fatal(message string) {
 			"file": fileInfo(2),
 		})
 		entity.Fatal(message)
-		sendLog("FATAL", message, nil)
+		go sendLog("FATAL", message, nil)
 	}
 }
 

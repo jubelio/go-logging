@@ -80,5 +80,6 @@ func insertLogsWithUserPassword(body LogBody) (err error) {
 		err = fmt.Errorf("code: %d status: %s", resp.StatusCode(), resp.Status())
 		return
 	}
+
 	return
 }
